@@ -178,13 +178,14 @@ class ReportedPostsBot {
 					controller: 'DiscussionModeration',
 					method: 'getReportedPosts',
 					format: 'json',
+					limit: 100,
 					t: Date.now()
 				}
 			}).json();
 
-			let embeds = [];
-			let pageIds = new Set([]);
-			let userIds = new Set([]);
+			let embeds = [],
+				pageIds = new Set([]),
+				userIds = new Set([]);
 
 			for (let post of response._embedded['doc:posts']) {
 				if (!this.cache.has(post.id)) {
