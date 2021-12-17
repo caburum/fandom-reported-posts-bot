@@ -4,8 +4,10 @@ import got from 'got'
 import { CookieJar } from 'tough-cookie'
 import { WebhookClient, MessageEmbed } from 'discord.js'
 
-import { createRequire } from "module";
+import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
+
+require('dotenv').config();
 
 /**
  * @classdesc Main class for the bot
@@ -24,23 +26,32 @@ class ReportedPostsBot {
 		this.config = {
 			devMode: process.env.ENVIRONMENT?.toLowerCase()?.startsWith('dev'),
 			webhook: {
-				id: process.env.WEBHOOK_ID,
-				token: process.env.WEBHOOK_TOKEN
+				id: process.env.WEBHOOK_ID || null,
+				token: process.env.WEBHOOK_TOKEN || null
 			},
 			fandom: {
-				wiki: process.env.FANDOM_WIKI,
+				wiki: process.env.FANDOM_WIKI || null,
 				domain: process.env.FANDOM_DOMAIN || 'fandom.com',
-				username: process.env.FANDOM_USERNAME,
-				password: process.env.FANDOM_PASSWORD
+				username: process.env.FANDOM_USERNAME || null,
+				password: process.env.FANDOM_PASSWORD || null
 			},
-			interval: (process.env.INTERVAL || 60) * 1000
+			interval: (process.env.INTERVAL || 30) * 1000
 		};
 
-		if (this.config.devMode) {
+		if (this.config.devMode && process.env.DEV_WEBHOOK_ID && process.env.DEV_WEBHOOK_TOKEN) {
 			this.config.webhook = {
 				id: process.env.DEV_WEBHOOK_ID,
 				token: process.env.DEV_WEBHOOK_TOKEN
 			}
+		}
+
+		// Check for missing config
+		if (Object.values(this.config)
+			.map(v => !(v instanceof Object ? Object.values(v).includes(null) : v === null))
+			.includes(false)
+		) {
+			this.finish();
+			throw console.error('Missing required config variable(s)');
 		}
 
 		// Discord webhook
@@ -305,6 +316,16 @@ class ReportedPostsBot {
 			case 'WALL':
 				return `${base}/wiki/Message_Wall:${this.containerCache.userIds[data.wallOwnerId].username.replaceAll(' ', '_')}?threadId=${threadId}#${postId}`;
 		}
+	}
+
+	/**
+	 * Cleans up the interval and client
+	 * @param {string} [reason] - Reason for exiting
+	 */
+	finish() {
+		console.info('Exiting...');
+		if (this.interval) clearInterval(this.interval);
+		this.webhook?.destroy();
 	}
 }
 

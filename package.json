@@ -22,6 +22,7 @@
 	"homepage": "https://github.com/caburum/fandom-reported-posts-bot",
 	"dependencies": {
 		"discord.js": "^13.3.1",
+		"dotenv": "^10.0.0",
 		"got": "^12.0.0",
 		"tough-cookie": "^4.0.0"
 	},
