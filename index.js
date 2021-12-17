@@ -22,6 +22,7 @@ class ReportedPostsBot {
 	 */
 	constructor() {
 		this.config = {
+			devMode: process.env.ENVIRONMENT?.toLowerCase()?.startsWith('dev'),
 			webhook: {
 				id: process.env.WEBHOOK_ID,
 				token: process.env.WEBHOOK_TOKEN
@@ -34,6 +35,13 @@ class ReportedPostsBot {
 			},
 			interval: (process.env.INTERVAL || 60) * 1000
 		};
+
+		if (this.config.devMode) {
+			this.config.webhook = {
+				id: process.env.DEV_WEBHOOK_ID,
+				token: process.env.DEV_WEBHOOK_TOKEN
+			}
+		}
 
 		// Discord webhook
 		this.webhook = new WebhookClient({
@@ -53,13 +61,14 @@ class ReportedPostsBot {
 		});
 
 		// Cache
-		try {
-			this.cache = new Set(require('./cache.json'));
-			console.info('Loaded cache')
-		} catch (err) {
-			console.log(err)
-			this.cache = new Set();
-			console.info('No cache found')
+		this.cache = new Set();
+		if (!this.config.devMode) {
+			try {
+				this.cache = new Set(require('./cache.json'));
+				console.info('Loaded cache');
+			} catch (err) {
+				console.info('Didn\'t load cache');
+			}
 		}
 	}
 
@@ -95,7 +104,7 @@ class ReportedPostsBot {
 	 * Save this.cache to cache.json
 	 */
 	saveCache() {
-		fs.writeFile('cache.json', JSON.stringify(Array.from(this.cache)), () => {});
+		if (!this.config.devMode) fs.writeFile('cache.json', JSON.stringify(Array.from(this.cache)), () => {});
 	}
 
 	/**
@@ -120,7 +129,7 @@ class ReportedPostsBot {
 	 * @returns {string} - Trimmed string
 	 */
 	trimEllip(text, length, elipsis = '…') {
-		text = text.trim(); // Remove whitespace
+		text = text.trim(); // Remove whitespace padding
 		return text.length > length ?
 			text.substring(0, length - elipsis.length) + elipsis
 			: text;
@@ -190,6 +199,8 @@ class ReportedPostsBot {
 			for (let post of response._embedded['doc:posts']) {
 				if (!this.cache.has(post.id)) {
 					this.cache.add(post.id);
+
+					// @todo support for anons
 					let data = {
 						title: post.title,
 						body: this.adfToText(post.jsonModel) || post.rawContent,
@@ -211,7 +222,7 @@ class ReportedPostsBot {
 						data.wallOwnerId = response._embedded.wallOwners?.find(wall => wall.wallContainerId === data.containerId).userId;
 						userIds.add(data.wallOwnerId);
 					}
-					embeds.push(data)
+					embeds.push(data);
 				}
 			}
 
@@ -225,7 +236,17 @@ class ReportedPostsBot {
 				}
 			}).json());
 
-			if (embeds.length) this.webhook.send({ embeds: embeds.reverse().map(data => this.generateEmbed(data)) });
+			// Split embeds into chunks of 10 and send them
+			if (embeds.length) {
+				// Show newest posts last
+				embeds = embeds.reverse();
+				// Create new arrays of 10 or less items and populate them
+				[...Array(Math.ceil(embeds.length / 10))].map((_, i) => embeds.slice(i * 10, i * 10 + 10))
+				// Generate and send embeds for each
+				.map(list => {
+					this.webhook.send({ embeds: list.map(data => this.generateEmbed(data)) });
+				})
+			};
 			this.saveCache();
 		} catch (err) {
 			if (err.response?.statusCode === 403) this.fandomLogin();
@@ -239,22 +260,22 @@ class ReportedPostsBot {
 	 * @returns {MessageEmbed}
 	 */
 	generateEmbed(data) {
+		// @todo add content type to param
 		let embed = new MessageEmbed()
 			.setColor(0xE1390B)
 			.setURL(this.getPostUrl(data))
 			.setAuthor(
 				this.trimEllip(data.author.name, 256),
 				data.author.avatar,
-				// @todo use user page or Special:UserProfileActivity instead
-				`${this.config.fandom.wikiUrl}/f/u/${data.author.id}`
+				`${this.config.fandom.wikiUrl}/wiki/Special:UserProfileActivity/${data.author.name.replaceAll(' ', '_')}`
 			)
 			.setTimestamp(data.timestamp)
 		
 		if (data.title) {
 			embed.setTitle(this.trimEllip(data.title, 256));
-			embed.setDescription(this.trimEllip(data.body), 500);
+			embed.setDescription(this.trimEllip(data.body, 500));
 		} else if (data.body) {
-			embed.setTitle(this.trimEllip(data.body), 256);
+			embed.setTitle(this.trimEllip(data.body, 256));
 		} else {
 			embed.setTitle('(untitled)');
 		}
@@ -282,7 +303,7 @@ class ReportedPostsBot {
 			case 'ARTICLE_COMMENT':
 				return `${base}${this.containerCache.articleNames[data.containerId].relativeUrl}?commentId=${threadId}&replyId=${postId}#articleComments`;
 			case 'WALL':
-				return `${base}/wiki/Message_Wall:${this.containerCache.userIds[data.wallOwnerId].username}?threadId=${threadId}#${postId}`;
+				return `${base}/wiki/Message_Wall:${this.containerCache.userIds[data.wallOwnerId].username.replaceAll(' ', '_')}?threadId=${threadId}#${postId}`;
 		}
 	}
 }
