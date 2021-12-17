@@ -1,0 +1,32 @@
+{
+	"name": "fandom-reported-posts-bot",
+	"version": "1.0.0",
+	"description": "Fetches new reported posts on Fandom and sends them to a Discord channel",
+	"scripts": {
+		"start": "node index.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/caburum/fandom-reported-posts-bot.git"
+	},
+	"keywords": [
+		"fandom",
+		"moderation",
+		"discord"
+	],
+	"author": "Calum Dingwall (https://github.com/caburum)",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/caburum/fandom-reported-posts-bot/issues"
+	},
+	"homepage": "https://github.com/caburum/fandom-reported-posts-bot",
+	"dependencies": {
+		"discord.js": "^13.3.1",
+		"got": "^12.0.0",
+		"tough-cookie": "^4.0.0"
+	},
+	"devDependencies": {
+		"jsdoc": "~3.6.7"
+	},
+	"type": "module"
+}

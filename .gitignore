@@ -1,0 +1,12 @@
+# Persistent cache
+cache.json
+
+# Secrets
+.env
+
+# Node
+node_modules
+*replit*
+
+# JSDoc
+out
