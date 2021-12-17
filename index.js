@@ -271,7 +271,6 @@ class ReportedPostsBot {
 	 * @returns {MessageEmbed}
 	 */
 	generateEmbed(data) {
-		// @todo add content type to param
 		let embed = new MessageEmbed()
 			.setColor(0xE1390B)
 			.setURL(this.getPostUrl(data))
@@ -292,6 +291,15 @@ class ReportedPostsBot {
 		}
 
 		if (data.image) embed.setImage(data.image);
+
+		switch (data.containerType) {
+			case 'FORUM':
+				embed.setFooter('Discussions'); break;
+			case 'ARTICLE_COMMENT':
+				embed.setFooter('Article comment'); break;
+			case 'WALL':
+				embed.setFooter('Message Wall'); break;
+		}
 
 		return embed;
 	}
