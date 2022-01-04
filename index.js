@@ -208,7 +208,7 @@ class ReportedPostsBot {
 				userIds = new Set([]);
 
 			for (let post of response._embedded['doc:posts']) {
-				if (!this.cache.has(post.id)) {
+				if (!this.cache.has(post.id) && !post.isDeleted) {
 					this.cache.add(post.id);
 
 					// @todo support for anons
@@ -225,7 +225,10 @@ class ReportedPostsBot {
 						postId: post.id,
 						threadId: post.threadId,
 						containerType: post._embedded.thread?.[0]?.containerType,
-						containerId: post._embedded.thread?.[0]?.containerId
+						containerId: post._embedded.thread?.[0]?.containerId,
+						containerName: post.forumName,
+						isReply: post.isReply,
+						isLocked: post._embedded.thread?.[0]?.isLocked
 					}
 
 					if (data.containerType === 'ARTICLE_COMMENT') pageIds.add(data.containerId);
@@ -279,7 +282,7 @@ class ReportedPostsBot {
 				data.author.avatar,
 				`${this.config.fandom.wikiUrl}/wiki/Special:UserProfileActivity/${data.author.name.replaceAll(' ', '_')}`
 			)
-			.setTimestamp(data.timestamp)
+			.setTimestamp(data.timestamp);
 		
 		if (data.title) {
 			embed.setTitle(this.trimEllip(data.title, 256));
@@ -292,38 +295,56 @@ class ReportedPostsBot {
 
 		if (data.image) embed.setImage(data.image);
 
+		// @todo add container link? would require switching to fields
+		let lock = data.isLocked ? '\uD83D\uDD12\uFE0E ' : '';
 		switch (data.containerType) {
 			case 'FORUM':
-				embed.setFooter('Discussions'); break;
+				embed.setFooter(`${lock}Discussions • ${data.containerName}`); break;
 			case 'ARTICLE_COMMENT':
-				embed.setFooter('Article comment'); break;
+				embed.setFooter(`${lock}Article comment • ${this.containerCache.articleNames[data.containerId].title}`); break;
 			case 'WALL':
-				embed.setFooter('Message Wall'); break;
+				embed.setFooter(`${lock}Message Wall • ${this.containerCache.userIds[data.wallOwnerId].username}`); break;
 		}
 
 		return embed;
 	}
 
 	/**
-	 * Get the URL to a post based on it's container type
+	 * Get the URL to a post or it's container
 	 * @param {object} data - Collected post data
-	 * @param {string[]} articles - article name
-	 * @returns {string} - URL to post
+	 * @param {boolean} getContainer - Get the post's container instead of the post itself (category for posts, article for comments, wall for messages)
+	 * @returns {string} - URL to container
 	 */
-	getPostUrl(data) {
-		// @todo don't add reply param for first post
-		let base = this.config.fandom.wikiUrl,
-			threadId = data.threadId,
-			postId = data.postId;
+	getPostUrl(data, getContainer = false) {
+		let url = new URL(this.config.fandom.wikiUrl);
 
 		switch (data.containerType) {
 			case 'FORUM':
-				return `${base}/f/p/${threadId}/r/${postId}`;
+				if (getContainer) {
+					url.pathname += '/f';
+					url.searchParams.set('catid', data.containerId);
+				} else {
+					url.pathname += `/f/p/${data.threadId}` + (data.isReply ? `/r/${data.postId}` : '');
+				}
+				break;
 			case 'ARTICLE_COMMENT':
-				return `${base}${this.containerCache.articleNames[data.containerId].relativeUrl}?commentId=${threadId}&replyId=${postId}#articleComments`;
+				url.pathname += this.containerCache.articleNames[data.containerId].relativeUrl;
+				url.hash = 'articleComments';
+				if (!getContainer) {
+					url.searchParams.set('commentId', data.threadId);
+					if (data.isReply) url.searchParams.set('replyId', data.postId);
+				}
+				break;
 			case 'WALL':
-				return `${base}/wiki/Message_Wall:${this.containerCache.userIds[data.wallOwnerId].username.replaceAll(' ', '_')}?threadId=${threadId}#${postId}`;
+				url.pathname +=  `/wiki/Message_Wall:${this.containerCache.userIds[data.wallOwnerId].username.replaceAll(' ', '_')}`;
+				if (!getContainer) {
+					url.searchParams.set('threadId', data.threadId);
+					if (data.isReply) url.hash = data.postId;
+				}
+				break;
 		}
+
+		return url.toString();
 	}
 
 	/**
