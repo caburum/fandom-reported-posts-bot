@@ -316,15 +316,15 @@ class ReportedPostsBot {
 	 * @returns {string} - URL to container
 	 */
 	getPostUrl(data, getContainer = false) {
-		let url = new URL(this.config.fandom.wikiUrl);
+		let url = new URL(this.config.fandom.wikiUrl + '/');
 
 		switch (data.containerType) {
 			case 'FORUM':
 				if (getContainer) {
-					url.pathname += '/f';
+					url.pathname += 'f';
 					url.searchParams.set('catid', data.containerId);
 				} else {
-					url.pathname += `/f/p/${data.threadId}` + (data.isReply ? `/r/${data.postId}` : '');
+					url.pathname += `f/p/${data.threadId}` + (data.isReply ? `/r/${data.postId}` : '');
 				}
 				break;
 			case 'ARTICLE_COMMENT':
@@ -336,7 +336,7 @@ class ReportedPostsBot {
 				}
 				break;
 			case 'WALL':
-				url.pathname +=  `/wiki/Message_Wall:${this.containerCache.userIds[data.wallOwnerId].username.replaceAll(' ', '_')}`;
+				url.pathname += `wiki/Message_Wall:${this.containerCache.userIds[data.wallOwnerId].username.replaceAll(' ', '_')}`;
 				if (!getContainer) {
 					url.searchParams.set('threadId', data.threadId);
 					if (data.isReply) url.hash = data.postId;
