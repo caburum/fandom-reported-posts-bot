@@ -15,7 +15,7 @@ require('dotenv').config();
  * @property {object} config - Configuration provided by the user, including secrets
  * @property {WebhookClient} webhook - Discord webhook client
  * @property {Got} api - Client for Fandom APIs, with stored cookies from [logging in]{@link ReportedPostsBot#fandomLogin}
- * @property {Set} cache - Reported posts that have already been setInterval
+ * @property {Set} cache - Reported posts that have already been sent
  * @property {NodeJS.Timeout} interval - [Polling function]{@link ReportedPostsBot#poll} interval
  */
 class ReportedPostsBot {
@@ -24,7 +24,7 @@ class ReportedPostsBot {
 	 */
 	constructor() {
 		this.config = {
-			devMode: process.env.ENVIRONMENT?.toLowerCase()?.startsWith('dev'),
+			devMode: process.env.ENVIRONMENT?.toLowerCase()?.startsWith('dev') || false,
 			webhook: {
 				id: process.env.WEBHOOK_ID || null,
 				token: process.env.WEBHOOK_TOKEN || null
@@ -46,10 +46,7 @@ class ReportedPostsBot {
 		}
 
 		// Check for missing config
-		if (Object.values(this.config)
-			.map(v => !(v instanceof Object ? Object.values(v).includes(null) : v === null))
-			.includes(false)
-		) {
+		if (Object.values(this.config).flat(1).includes(null)) {
 			this.finish();
 			throw console.error('Missing required config variable(s)');
 		}
@@ -228,7 +225,9 @@ class ReportedPostsBot {
 						containerId: post._embedded.thread?.[0]?.containerId,
 						containerName: post.forumName,
 						isReply: post.isReply,
-						isLocked: post._embedded.thread?.[0]?.isLocked
+						isLocked: post._embedded.thread?.[0]?.isLocked,
+						poll: post.poll,
+						quiz: quiz.poll
 					}
 
 					if (data.containerType === 'ARTICLE_COMMENT') pageIds.add(data.containerId);
@@ -293,18 +292,32 @@ class ReportedPostsBot {
 			embed.setTitle('(untitled)');
 		}
 
+		if (data.poll) {
+			embed.addField('Poll', this.trimEllip(data.poll.answers.map(a => '• ' + a.text).join('\n'), 1024), true)
+		}
+
 		if (data.image) embed.setImage(data.image);
 
+		let footer = '';
+
+		if (data.isLocked) footer += '\uD83D\uDD12\uFE0E';
+		if (data.isReply) footer += '↶';
+		if (data.poll) footer += '\uD83D\uDCCA\uFE0E';
+		if (data.quiz) footer += '\uD83D\uDD51\uFE0E';
+
+		if (footer.length) footer += ' ';
+
 		// @todo add container link? would require switching to fields
-		let lock = data.isLocked ? '\uD83D\uDD12\uFE0E ' : '';
 		switch (data.containerType) {
 			case 'FORUM':
-				embed.setFooter(`${lock}Discussions • ${data.containerName}`); break;
+				footer += `Discussions • ${data.containerName}`; break;
 			case 'ARTICLE_COMMENT':
-				embed.setFooter(`${lock}Article comment • ${this.containerCache.articleNames[data.containerId].title}`); break;
+				footer += `Article comment • ${this.containerCache.articleNames[data.containerId].title}`; break;
 			case 'WALL':
-				embed.setFooter(`${lock}Message Wall • ${this.containerCache.userIds[data.wallOwnerId].username}`); break;
+				footer += `Message Wall • ${this.containerCache.userIds[data.wallOwnerId].username}`; break;
 		}
+
+		embed.setFooter(footer);
 
 		return embed;
 	}
