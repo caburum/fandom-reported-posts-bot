@@ -227,7 +227,7 @@ class ReportedPostsBot {
 						isReply: post.isReply,
 						isLocked: post._embedded.thread?.[0]?.isLocked,
 						poll: post.poll,
-						quiz: quiz.poll
+						quiz: post.quiz
 					}
 
 					if (data.containerType === 'ARTICLE_COMMENT') pageIds.add(data.containerId);
