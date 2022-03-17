@@ -61,10 +61,13 @@ class ReportedPostsBot {
 		this.config.fandom.wikiUrl = this.getWikiUrl(this.config.fandom.wiki, this.config.fandom.domain);
 
 		let pkg = require('./package.json');
+		this.cookieJar = new CookieJar();
 		this.api = got.extend({
-			cookieJar: new CookieJar(),
+			cookieJar: this.cookieJar,
 			headers: {
-				'User-Agent': `${pkg.name} v${pkg.version} (${pkg.homepage})`
+				'User-Agent': `${pkg.name} v${pkg.version} (${pkg.homepage})`,
+				'X-Wikia-WikiaAppsID': '1234',
+				'X-Fandom-Auth': '1'
 			}
 		});
 
@@ -87,16 +90,22 @@ class ReportedPostsBot {
 	async fandomLogin() {
 		return new Promise(async (resolve, reject) => {
 			try {
-				let response = await this.api.post(`https://services.${this.config.fandom.domain}/auth/token`, {
+				let response = await this.api.post(`https://services.${this.config.fandom.domain}/mobile-fandom-app/fandom-auth/login`, {
 					form: {
 						username: this.config.fandom.username,
 						password: this.config.fandom.password
-					},
-					headers: {
-						'X-Wikia-WikiaAppsID': 1234
 					}
 				}).json();
-				console.info(`Logged into Fandom as ID ${response.user_id}`);
+
+				// Set auth cookie
+				const expiry = new Date();
+				expiry.setFullYear(expiry.getFullYear() + 100);
+				await this.cookieJar.setCookie(`access_token=${response.access_token}; Domain=fandom.com; Path=/; Expires=${expiry.toUTCString()}; Max-Age=15552000; Secure; HttpOnly; Version=1`, 'https://fandom.com/');
+
+				// Test that login worked
+				let whoami = await this.api.get('https://services.fandom.com/whoami').json();
+
+				console.info(`Logged into Fandom as ID ${whoami.userId}`);
 				resolve(response);
 			} catch (err) {
 				console.error('Failed to log in:', err.response.body);
