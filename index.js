@@ -66,8 +66,7 @@ class ReportedPostsBot {
 			cookieJar: this.cookieJar,
 			headers: {
 				'User-Agent': `${pkg.name} v${pkg.version} (${pkg.homepage})`,
-				'X-Wikia-WikiaAppsID': '1234',
-				'X-Fandom-Auth': '1'
+				'X-Fandom-Auth': 1
 			}
 		});
 
