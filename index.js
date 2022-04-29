@@ -89,25 +89,29 @@ class ReportedPostsBot {
 	async fandomLogin() {
 		return new Promise(async (resolve, reject) => {
 			try {
-				let response = await this.api.post(`https://services.${this.config.fandom.domain}/mobile-fandom-app/fandom-auth/login`, {
+				// Initiate login flow
+				let flow = await this.api.get(`https://services.${this.config.fandom.domain}/kratos-public/self-service/login/api`).json();
+
+				// Login
+				let login = await this.api.post(flow.ui.action, {
 					form: {
-						username: this.config.fandom.username,
-						password: this.config.fandom.password
+						password_identifier: this.config.fandom.username,
+						password: this.config.fandom.password,
+						method: 'password'
 					}
 				}).json();
 
-				// Set auth cookie
-				const expiry = new Date();
-				expiry.setFullYear(expiry.getFullYear() + 100);
-				await this.cookieJar.setCookie(`access_token=${response.access_token}; Domain=fandom.com; Path=/; Expires=${expiry.toUTCString()}; Max-Age=15552000; Secure; HttpOnly; Version=1`, 'https://fandom.com/');
+				if ('session' in login) { // Got a good response
+					// Test that login worked
+					let whoami = await this.api.get(`https://services.${this.config.fandom.domain}/whoami`).json();
 
-				// Test that login worked
-				let whoami = await this.api.get('https://services.fandom.com/whoami').json();
-
-				console.info(`Logged into Fandom as ID ${whoami.userId}`);
-				resolve(response);
+					console.info(`Logged into Fandom as ${login.session.identity.traits.username} (ID ${whoami.userId})`);
+					resolve(login);
+				} else {
+					throw new Error(req.ui.messages);
+				}
 			} catch (err) {
-				console.error('Failed to log in:', err.response.body);
+				console.error('Failed to log in:', err.response ? err.response.body : err);
 				return await new Promise(resolve => setTimeout(async () => {
 					resolve();
 					return await this.fandomLogin();
