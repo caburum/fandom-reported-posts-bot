@@ -65,8 +65,7 @@ class ReportedPostsBot {
 		this.api = got.extend({
 			cookieJar: this.cookieJar,
 			headers: {
-				'User-Agent': `${pkg.name} v${pkg.version} (${pkg.homepage})`,
-				'X-Fandom-Auth': 1
+				'User-Agent': `${pkg.name} v${pkg.version} (${pkg.homepage})`
 			}
 		});
 
