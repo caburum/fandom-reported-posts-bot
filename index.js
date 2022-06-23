@@ -216,7 +216,7 @@ class ReportedPostsBot {
 				userIds = new Set([]);
 
 			for (let post of response._embedded['doc:posts']) {
-				if (!this.cache.has(post.id) && !post.isDeleted) {
+				if (!this.cache.has(post.id) && !post.isDeleted && !post?._embedded?.thread?.[0]?.isDeleted) {
 					this.cache.add(post.id);
 
 					// @todo support for anons
@@ -287,11 +287,11 @@ class ReportedPostsBot {
 		let embed = new MessageEmbed()
 			.setColor(0xE1390B)
 			.setURL(this.getPostUrl(data))
-			.setAuthor(
-				this.trimEllip(data.author.name, 256),
-				data.author.avatar,
-				`${this.config.fandom.wikiUrl}/wiki/Special:UserProfileActivity/${data.author.name.replaceAll(' ', '_')}`
-			)
+			.setAuthor({
+				name: this.trimEllip(data.author.name, 256),
+				iconURL: data.author.avatar,
+				url: `${this.config.fandom.wikiUrl}/wiki/Special:UserProfileActivity/${data.author.name.replaceAll(' ', '_')}`
+			})
 			.setTimestamp(data.timestamp);
 		
 		if (data.title) {
@@ -328,7 +328,7 @@ class ReportedPostsBot {
 				footer += `Message Wall • ${this.containerCache.userIds[data.wallOwnerId].username}`; break;
 		}
 
-		embed.setFooter(footer);
+		embed.setFooter({ text: footer });
 
 		return embed;
 	}
